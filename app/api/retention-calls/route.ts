@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import pool from "@/lib/db";
+import prisma from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
@@ -21,22 +21,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await pool.query(
-      `
-      INSERT INTO retention_calls (customer_id, call_timestamp, outcome, notes)
-      VALUES ($1, CURRENT_TIMESTAMP, $2, $3)
-      RETURNING id, customer_id as "customerId", call_timestamp as "callTimestamp", outcome, notes
-    `,
-      [merchantId, outcome ?? null, notes ?? null]
-    );
+    const created = await prisma.retention_calls.create({
+      data: {
+        customer_id: BigInt(merchantId),
+        outcome: outcome ?? null,
+        notes: notes ?? null,
+      },
+    });
 
-    const row = result.rows[0];
     return NextResponse.json({
-      id: row.id,
-      customerId: Number(row.customerId),
-      callTimestamp: row.callTimestamp,
-      outcome: row.outcome,
-      notes: row.notes,
+      id: created.id,
+      customerId: Number(created.customer_id),
+      callTimestamp: created.call_timestamp,
+      outcome: created.outcome,
+      notes: created.notes,
     });
   } catch (error) {
     console.error("Failed to create retention call:", error);

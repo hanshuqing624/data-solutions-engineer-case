@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model dim_customer {
+  merchant_id            BigInt             @id
+  company_name           String?            @db.VarChar(255)
+  contact_person         String?            @db.VarChar(255)
+  phone_number           String?            @db.VarChar(50)
+  address                String?
+  country                String?            @db.VarChar(10)
+  product_type           String?            @db.VarChar(50)
+  merchant_segment       String?            @db.VarChar(50)
+  merchant_created_at    DateTime?          @db.Timestamp(6)
+  first_transaction      DateTime?          @db.Timestamp(6)
+  last_transaction       String?            @db.VarChar(50)
+  total_transactions     BigInt?
+  total_volume_eur       BigInt?
+  avg_ticket_eur         BigInt?
+  avg_monthly_volume_eur BigInt?
+  corporate_ratio        BigInt?
+  fct_transactions       fct_transactions[]
+  retention_calls        retention_calls[]
+}
+
+model fct_transactions {
+  transaction_id          String        @id @db.VarChar(50)
+  payment_id              String?       @db.VarChar(50)
+  merchant_id             BigInt?
+  merchant_created_at     DateTime?     @db.Timestamp(6)
+  transaction_timestamp   DateTime?     @db.Timestamp(6)
+  country                 String?       @db.VarChar(10)
+  currency                String?       @db.VarChar(10)
+  settlement_currency     String?       @db.VarChar(10)
+  card_country            String?       @db.VarChar(10)
+  card_type               String?       @db.VarChar(50)
+  flag_fees_missing       Boolean?
+  flag_settlement_missing Boolean?
+  transaction_amount_eur  BigInt?
+  transaction_amount_raw  BigInt?
+  surcharge_amount_eur    Float?
+  settlement_amount_raw   BigInt?
+  merchant_rate           BigInt?
+  cost_rate               BigInt?
+  take_rate               BigInt?
+  dim_customer            dim_customer? @relation(fields: [merchant_id], references: [merchant_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([merchant_id], map: "idx_fct_transactions_merchant_id")
+  @@index([transaction_timestamp], map: "idx_fct_transactions_timestamp")
+}
+
+model retention_calls {
+  id             Int          @id @default(autoincrement())
+  customer_id    BigInt
+  call_timestamp DateTime     @default(now()) @db.Timestamp(6)
+  outcome        String?      @db.VarChar(100)
+  notes          String?
+  dim_customer   dim_customer @relation(fields: [customer_id], references: [merchant_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_retention_calls_customer_id")
+}

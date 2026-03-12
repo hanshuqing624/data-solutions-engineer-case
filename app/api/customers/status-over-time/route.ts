@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import pool from "@/lib/db";
+import prisma from "@/lib/db";
 import { classifyCustomer } from "@/lib/classification";
+import { getMerchantMetricsAsOf } from "@/lib/customer-metrics";
 
 export type StatusOverTimeWeek = {
   week: string;
@@ -11,79 +12,41 @@ export type StatusOverTimeWeek = {
   total: number;
 };
 
-/** Compute merchant status counts for a given date (as-of date for classification) */
 async function getStatusCountsAsOf(asOfDate: Date): Promise<{
   active: number;
   atRisk: number;
   inactive: number;
 }> {
-  const asOfStr = asOfDate.toISOString().slice(0, 10);
+  const asOfEnd = new Date(asOfDate);
+  asOfEnd.setHours(23, 59, 59, 999);
 
-  const result = await pool.query(
-    `
-    WITH agg_alltime AS (
-      SELECT 
-        merchant_id,
-        SUM(transaction_amount_eur) as total_volume,
-        EXTRACT(EPOCH FROM (MAX(transaction_timestamp) - MIN(transaction_timestamp))) / (30.44 * 24 * 3600) as months_span
-      FROM fct_transactions
-      WHERE transaction_timestamp <= $1::date + INTERVAL '1 day'
-      GROUP BY merchant_id
-    ),
-    agg_30d AS (
-      SELECT 
-        merchant_id,
-        SUM(transaction_amount_eur) as volume_30d,
-        COUNT(*)::bigint as txn_count_30d
-      FROM fct_transactions
-      WHERE transaction_timestamp >= $1::date - INTERVAL '30 days'
-        AND transaction_timestamp <= $1::date + INTERVAL '1 day'
-      GROUP BY merchant_id
-    ),
-    agg_90d AS (
-      SELECT 
-        merchant_id,
-        COUNT(*)::bigint as txn_count_90d,
-        MAX(transaction_timestamp) as last_transaction_timestamp
-      FROM fct_transactions
-      WHERE transaction_timestamp >= $1::date - INTERVAL '90 days'
-        AND transaction_timestamp <= $1::date + INTERVAL '1 day'
-      GROUP BY merchant_id
-    ),
-    agg_prior_30d AS (
-      SELECT 
-        merchant_id,
-        SUM(transaction_amount_eur) as volume_prior_30d
-      FROM fct_transactions
-      WHERE transaction_timestamp >= $1::date - INTERVAL '60 days'
-        AND transaction_timestamp < $1::date - INTERVAL '30 days'
-      GROUP BY merchant_id
-    )
-    SELECT 
-      c.merchant_id,
-      c.merchant_segment,
-      (aa.total_volume / NULLIF(GREATEST(aa.months_span, 1), 0))::bigint as avg_monthly,
-      COALESCE(a90.txn_count_90d, 0)::bigint as txn_count_90d,
-      a90.last_transaction_timestamp,
-      COALESCE(a30.volume_30d, 0)::bigint as volume_30d,
-      COALESCE(ap30.volume_prior_30d, 0)::bigint as volume_prior_30d
-    FROM dim_customer c
-    LEFT JOIN agg_alltime aa ON c.merchant_id = aa.merchant_id
-    LEFT JOIN agg_90d a90 ON c.merchant_id = a90.merchant_id
-    LEFT JOIN agg_30d a30 ON c.merchant_id = a30.merchant_id
-    LEFT JOIN agg_prior_30d ap30 ON c.merchant_id = ap30.merchant_id
-    WHERE (c.merchant_created_at IS NULL OR c.merchant_created_at <= $1::date + INTERVAL '1 day')
-    `,
-    [asOfStr]
-  );
+  const [customers, metricsMap] = await Promise.all([
+    prisma.dim_customer.findMany({
+      where: {
+        OR: [
+          { merchant_created_at: null },
+          { merchant_created_at: { lte: asOfEnd } },
+        ],
+      },
+      select: { merchant_id: true, merchant_segment: true },
+    }),
+    getMerchantMetricsAsOf(asOfDate),
+  ]);
 
   const counts = { active: 0, atRisk: 0, inactive: 0 };
   const asOfTime = asOfDate.getTime();
 
-  for (const row of result.rows) {
-    const lastTs = row.last_transaction_timestamp
-      ? new Date(row.last_transaction_timestamp)
-      : null;
+  for (const c of customers) {
+    const m = metricsMap.get(c.merchant_id) ?? {
+      volume90d: 0,
+      transactionCount90d: 0,
+      lastTransactionTimestamp: null as Date | null,
+      volume30d: 0,
+      volumePrior30d: 0,
+      avgMonthlyVolumeEur: null as number | null,
+    };
+
+    const lastTs = m.lastTransactionTimestamp;
     const daysSinceLast =
       lastTs !== null
         ? Math.floor(
@@ -93,11 +56,11 @@ async function getStatusCountsAsOf(asOfDate: Date): Promise<{
 
     const { status } = classifyCustomer({
       daysSinceLastTransaction: daysSinceLast,
-      transactionCount90d: Number(row.txn_count_90d),
-      volume30d: Number(row.volume_30d),
-      volumePrior30d: Number(row.volume_prior_30d),
-      avgMonthlyVolumeEur: row.avg_monthly != null ? Number(row.avg_monthly) : null,
-      merchantSegment: row.merchant_segment,
+      transactionCount90d: m.transactionCount90d,
+      volume30d: m.volume30d,
+      volumePrior30d: m.volumePrior30d,
+      avgMonthlyVolumeEur: m.avgMonthlyVolumeEur,
+      merchantSegment: c.merchant_segment,
     });
 
     counts[status === "Active" ? "active" : status === "At Risk" ? "atRisk" : "inactive"]++;

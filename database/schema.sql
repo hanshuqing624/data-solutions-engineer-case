@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS dim_customer (
 
 -- Table 2: fct_transactions (from sheet 2)
 CREATE TABLE IF NOT EXISTS fct_transactions (
-    transaction_id VARCHAR(50),
+    transaction_id VARCHAR(50) PRIMARY KEY,
     payment_id VARCHAR(50),
     merchant_id BIGINT REFERENCES dim_customer(merchant_id),
     merchant_created_at TIMESTAMP,

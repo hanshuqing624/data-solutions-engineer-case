@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import pool from "@/lib/db";
+import prisma from "@/lib/db";
 import { classifyCustomer } from "@/lib/classification";
+import { getMerchantMetricsFor } from "@/lib/customer-metrics";
 
 export async function GET(
   _request: Request,
@@ -13,77 +14,55 @@ export async function GET(
   }
 
   try {
-    // 1. Customer info + metrics for classification
-    const customerResult = await pool.query(
-      `
-      WITH agg_alltime AS (
-        SELECT 
-          merchant_id,
-          SUM(transaction_amount_eur) as total_volume,
-          EXTRACT(EPOCH FROM (MAX(transaction_timestamp) - MIN(transaction_timestamp))) / (30.44 * 24 * 3600) as months_span
-        FROM fct_transactions
-        WHERE merchant_id = $1
-        GROUP BY merchant_id
-      ),
-      agg_30d AS (
-        SELECT merchant_id, SUM(transaction_amount_eur) as volume_30d
-        FROM fct_transactions
-        WHERE merchant_id = $1 AND transaction_timestamp >= CURRENT_DATE - INTERVAL '30 days'
-        GROUP BY merchant_id
-      ),
-      agg_90d AS (
-        SELECT 
-          merchant_id,
-          SUM(transaction_amount_eur) as volume_90d,
-          COUNT(*)::bigint as txn_count_90d,
-          MAX(transaction_timestamp) as last_transaction_timestamp
-        FROM fct_transactions
-        WHERE merchant_id = $1 AND transaction_timestamp >= CURRENT_DATE - INTERVAL '90 days'
-        GROUP BY merchant_id
-      ),
-      agg_prior_30d AS (
-        SELECT merchant_id, SUM(transaction_amount_eur) as volume_prior_30d
-        FROM fct_transactions
-        WHERE merchant_id = $1
-          AND transaction_timestamp >= CURRENT_DATE - INTERVAL '60 days'
-          AND transaction_timestamp < CURRENT_DATE - INTERVAL '30 days'
-        GROUP BY merchant_id
-      )
-      SELECT 
-        c.merchant_id as "merchantId",
-        c.company_name as "companyName",
-        c.contact_person as "contactPerson",
-        c.phone_number as "phoneNumber",
-        c.address,
-        c.country,
-        c.product_type as "productType",
-        c.merchant_segment as "merchantSegment",
-        c.merchant_created_at as "merchantCreatedAt",
-        (aa.total_volume / NULLIF(GREATEST(aa.months_span, 1), 0))::bigint as "avgMonthlyVolumeEur",
-        COALESCE(a90.volume_90d, 0)::bigint as "volume90d",
-        COALESCE(a90.txn_count_90d, 0)::bigint as "transactionCount90d",
-        a90.last_transaction_timestamp as "lastTransactionTimestamp",
-        COALESCE(a30.volume_30d, 0)::bigint as "volume30d",
-        COALESCE(ap30.volume_prior_30d, 0)::bigint as "volumePrior30d"
-      FROM dim_customer c
-      LEFT JOIN agg_alltime aa ON c.merchant_id = aa.merchant_id
-      LEFT JOIN agg_90d a90 ON c.merchant_id = a90.merchant_id
-      LEFT JOIN agg_30d a30 ON c.merchant_id = a30.merchant_id
-      LEFT JOIN agg_prior_30d ap30 ON c.merchant_id = ap30.merchant_id
-      WHERE c.merchant_id = $1
-    `,
-      [merchantId]
-    );
+    const merchantIdBigInt = BigInt(merchantId);
 
-    if (customerResult.rows.length === 0) {
+    const twentyFourMonthsAgo = new Date();
+    twentyFourMonthsAgo.setMonth(twentyFourMonthsAgo.getMonth() - 24);
+
+    const [customer, metrics, transactions, transactionsForMonthly, retentionCalls] =
+      await Promise.all([
+        prisma.dim_customer.findUnique({
+          where: { merchant_id: merchantIdBigInt },
+        }),
+        getMerchantMetricsFor(merchantId),
+        prisma.fct_transactions.findMany({
+          where: { merchant_id: merchantIdBigInt },
+          orderBy: { transaction_timestamp: "desc" },
+          take: 500,
+          select: {
+            transaction_id: true,
+            transaction_timestamp: true,
+            transaction_amount_eur: true,
+            currency: true,
+            card_type: true,
+          },
+        }),
+        prisma.fct_transactions.findMany({
+          where: {
+            merchant_id: merchantIdBigInt,
+            transaction_timestamp: { gte: twentyFourMonthsAgo },
+          },
+          select: {
+            transaction_timestamp: true,
+            transaction_amount_eur: true,
+          },
+        }),
+        prisma.retention_calls.findMany({
+          where: { customer_id: merchantIdBigInt },
+          orderBy: { call_timestamp: "desc" },
+        }),
+      ]);
+
+    if (!customer) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
-    const row = customerResult.rows[0];
+    if (!metrics) {
+      return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    }
+
     const now = new Date();
-    const lastTs = row.lastTransactionTimestamp
-      ? new Date(row.lastTransactionTimestamp)
-      : null;
+    const lastTs = metrics.lastTransactionTimestamp;
     const daysSinceLast =
       lastTs !== null
         ? Math.floor(
@@ -91,113 +70,75 @@ export async function GET(
           )
         : null;
 
-    const avgMonthly =
-      row.avgMonthlyVolumeEur != null
-        ? Number(row.avgMonthlyVolumeEur)
-        : null;
-
     const { status, reason } = classifyCustomer({
       daysSinceLastTransaction: daysSinceLast,
-      transactionCount90d: Number(row.transactionCount90d),
-      volume30d: Number(row.volume30d),
-      volumePrior30d: Number(row.volumePrior30d),
-      avgMonthlyVolumeEur: avgMonthly,
-      merchantSegment: row.merchantSegment,
+      transactionCount90d: metrics.transactionCount90d,
+      volume30d: metrics.volume30d,
+      volumePrior30d: metrics.volumePrior30d,
+      avgMonthlyVolumeEur: metrics.avgMonthlyVolumeEur,
+      merchantSegment: customer.merchant_segment,
     });
 
-    const customer = {
-      merchantId: row.merchantId,
-      companyName: row.companyName,
-      contactPerson: row.contactPerson,
-      phoneNumber: row.phoneNumber,
-      address: row.address,
-      country: row.country,
-      productType: row.productType,
-      merchantSegment: row.merchantSegment,
-      merchantCreatedAt: row.merchantCreatedAt,
-      volume90d: Number(row.volume90d),
-      transactionCount90d: Number(row.transactionCount90d),
+    const customerResponse = {
+      merchantId: Number(customer.merchant_id),
+      companyName: customer.company_name,
+      contactPerson: customer.contact_person,
+      phoneNumber: customer.phone_number,
+      address: customer.address,
+      country: customer.country,
+      productType: customer.product_type,
+      merchantSegment: customer.merchant_segment,
+      merchantCreatedAt: customer.merchant_created_at,
+      volume90d: metrics.volume90d,
+      transactionCount90d: metrics.transactionCount90d,
       daysSinceLastTransaction: daysSinceLast,
       status,
       risk_reason: reason,
     };
 
-    // 2. Full transaction history (paginated - last 500)
-    const transactionsResult = await pool.query(
-      `
-      SELECT 
-        transaction_id as "transactionId",
-        transaction_timestamp as "transactionTimestamp",
-        transaction_amount_eur as "transactionAmountEur",
-        currency,
-        card_type as "cardType"
-      FROM fct_transactions
-      WHERE merchant_id = $1
-      ORDER BY transaction_timestamp DESC
-      LIMIT 500
-    `,
-      [merchantId]
-    );
-
-    const transactions = transactionsResult.rows.map((r: Record<string, unknown>) => ({
-      transactionId: r.transactionId,
-      transactionTimestamp: r.transactionTimestamp,
-      transactionAmountEur: Number(r.transactionAmountEur),
-      currency: r.currency,
-      cardType: r.cardType,
+    const transactionsResponse = transactions.map((t) => ({
+      transactionId: t.transaction_id,
+      transactionTimestamp: t.transaction_timestamp,
+      transactionAmountEur: Number(t.transaction_amount_eur ?? 0),
+      currency: t.currency,
+      cardType: t.card_type,
     }));
 
-    // 3. Aggregated monthly transaction volume
-    const monthlyResult = await pool.query(
-      `
-      SELECT 
-        DATE_TRUNC('month', transaction_timestamp)::date as "month",
-        SUM(transaction_amount_eur)::bigint as "volume",
-        COUNT(*)::bigint as "transactionCount"
-      FROM fct_transactions
-      WHERE merchant_id = $1
-      GROUP BY DATE_TRUNC('month', transaction_timestamp)
-      ORDER BY "month" DESC
-      LIMIT 24
-    `,
-      [merchantId]
-    );
-
-    const monthlyVolume = monthlyResult.rows.map((r: Record<string, unknown>) => ({
-      month: r.month,
-      volume: Number(r.volume),
-      transactionCount: Number(r.transactionCount),
-    }));
-
-    // 4. Retention calls history
-    const callsResult = await pool.query(
-      `
-      SELECT 
-        id,
-        customer_id as "customerId",
-        call_timestamp as "callTimestamp",
-        outcome,
-        notes
-      FROM retention_calls
-      WHERE customer_id = $1
-      ORDER BY call_timestamp DESC
-    `,
-      [merchantId]
-    );
-
-    const retentionCalls = callsResult.rows.map((r: Record<string, unknown>) => ({
-      id: r.id,
-      customerId: r.customerId,
-      callTimestamp: r.callTimestamp,
-      outcome: r.outcome,
-      notes: r.notes,
-    }));
+    const byMonth = new Map<
+      string,
+      { volume: number; transactionCount: number }
+    >();
+    for (const t of transactionsForMonthly) {
+      if (!t.transaction_timestamp) continue;
+      const monthKey = `${t.transaction_timestamp.getFullYear()}-${String(t.transaction_timestamp.getMonth() + 1).padStart(2, "0")}`;
+      const existing = byMonth.get(monthKey) ?? {
+        volume: 0,
+        transactionCount: 0,
+      };
+      existing.volume += Number(t.transaction_amount_eur ?? 0);
+      existing.transactionCount += 1;
+      byMonth.set(monthKey, existing);
+    }
+    const monthlyVolume = Array.from(byMonth.entries())
+      .map(([monthStr, v]) => ({
+        month: new Date(`${monthStr}-01`),
+        volume: v.volume,
+        transactionCount: v.transactionCount,
+      }))
+      .sort((a, b) => b.month.getTime() - a.month.getTime())
+      .slice(0, 24);
 
     return NextResponse.json({
-      customer,
-      transactions,
+      customer: customerResponse,
+      transactions: transactionsResponse,
       monthlyVolume,
-      retentionCalls,
+      retentionCalls: retentionCalls.map((r) => ({
+        id: r.id,
+        customerId: Number(r.customer_id),
+        callTimestamp: r.call_timestamp,
+        outcome: r.outcome,
+        notes: r.notes,
+      })),
     });
   } catch (error) {
     console.error("Failed to fetch customer detail:", error);
