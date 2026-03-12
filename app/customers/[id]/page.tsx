@@ -140,38 +140,38 @@ export default function CustomerDetailPage({
         </Link>
 
         {/* Customer header */}
-        <div className="mb-8 rounded-lg border border-zinc-200 bg-white p-6">
+        <div className="mb-8 rounded-lg border border-zinc-200 bg-white p-6 text-zinc-900">
           <div className="mb-4 flex items-start justify-between">
             <div>
               <h1 className="text-2xl font-semibold text-zinc-900">
                 {customer.companyName ?? `Merchant ${customer.merchantId}`}
               </h1>
-              <p className="mt-1 text-sm text-zinc-600">
+              <p className="mt-1 text-sm text-zinc-700">
                 {customer.country} · {customer.merchantSegment ?? "—"} ·{" "}
                 {customer.productType ?? "—"}
               </p>
             </div>
             <StatusBadge status={customer.status} riskReason={customer.risk_reason} />
           </div>
-          <p className="text-sm text-zinc-600" title={customer.risk_reason}>
+          <p className="text-sm text-zinc-700" title={customer.risk_reason}>
             {customer.risk_reason}
           </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <span className="text-xs text-zinc-500">Contact</span>
-              <p className="font-medium">{customer.contactPerson ?? "—"}</p>
+              <p className="font-medium text-zinc-900">{customer.contactPerson ?? "—"}</p>
             </div>
             <div>
               <span className="text-xs text-zinc-500">Phone</span>
-              <p className="font-medium">{customer.phoneNumber ?? "—"}</p>
+              <p className="font-medium text-zinc-900">{customer.phoneNumber ?? "—"}</p>
             </div>
             <div>
               <span className="text-xs text-zinc-500">Volume (90d)</span>
-              <p className="font-medium">{formatVolumeCents(customer.volume90d)}</p>
+              <p className="font-medium text-zinc-900">{formatVolumeCents(customer.volume90d)}</p>
             </div>
             <div>
               <span className="text-xs text-zinc-500">Txns (90d)</span>
-              <p className="font-medium">{customer.transactionCount90d}</p>
+              <p className="font-medium text-zinc-900">{customer.transactionCount90d}</p>
             </div>
           </div>
         </div>
@@ -181,10 +181,10 @@ export default function CustomerDetailPage({
           <h2 className="mb-4 text-lg font-semibold text-zinc-900">
             Monthly Transaction Volume
           </h2>
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white text-zinc-900">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 bg-zinc-50">
+                <tr className="border-b border-zinc-200 bg-zinc-50 text-zinc-900">
                   <th className="px-4 py-3 font-medium">Month</th>
                   <th className="px-4 py-3 font-medium text-right">Volume</th>
                   <th className="px-4 py-3 font-medium text-right">Txns</th>
@@ -194,7 +194,7 @@ export default function CustomerDetailPage({
                 {monthlyVolume.map((m) => (
                   <tr
                     key={m.month}
-                    className="border-b border-zinc-100 last:border-0"
+                    className="border-b border-zinc-100 last:border-0 text-zinc-900"
                   >
                     <td className="px-4 py-3">{formatDate(m.month)}</td>
                     <td className="px-4 py-3 text-right">
@@ -219,14 +219,14 @@ export default function CustomerDetailPage({
           {/* Log new call form */}
           <form
             onSubmit={handleLogCall}
-            className="mb-6 rounded-lg border border-zinc-200 bg-white p-4"
+            className="mb-6 rounded-lg border border-zinc-200 bg-white p-4 text-zinc-900"
           >
-            <h3 className="mb-3 text-sm font-medium text-zinc-700">
+            <h3 className="mb-3 text-sm font-medium text-zinc-900">
               Log new call
             </h3>
             <div className="flex flex-wrap gap-4">
               <div>
-                <label className="mb-1 block text-xs text-zinc-500">
+                <label className="mb-1 block text-xs text-zinc-600">
                   Outcome
                 </label>
                 <input
@@ -234,17 +234,17 @@ export default function CustomerDetailPage({
                   value={outcome}
                   onChange={(e) => setOutcome(e.target.value)}
                   placeholder="e.g. Reached, No answer"
-                  className="rounded border border-zinc-300 px-3 py-2 text-sm"
+                  className="rounded border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
                 />
               </div>
               <div className="min-w-[200px] flex-1">
-                <label className="mb-1 block text-xs text-zinc-500">Notes</label>
+                <label className="mb-1 block text-xs text-zinc-600">Notes</label>
                 <input
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Call notes..."
-                  className="w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+                  className="w-full rounded border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
                 />
               </div>
               <div className="flex items-end">
@@ -260,10 +260,10 @@ export default function CustomerDetailPage({
           </form>
 
           {/* Retention calls history */}
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white text-zinc-900">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 bg-zinc-50">
+                <tr className="border-b border-zinc-200 bg-zinc-50 text-zinc-900">
                   <th className="px-4 py-3 font-medium">Date</th>
                   <th className="px-4 py-3 font-medium">Outcome</th>
                   <th className="px-4 py-3 font-medium">Notes</th>
@@ -274,7 +274,7 @@ export default function CustomerDetailPage({
                   <tr>
                     <td
                       colSpan={3}
-                      className="px-4 py-6 text-center text-zinc-500"
+                      className="px-4 py-6 text-center text-zinc-600"
                     >
                       No retention calls logged yet
                     </td>
@@ -283,7 +283,7 @@ export default function CustomerDetailPage({
                   retentionCalls.map((call) => (
                     <tr
                       key={call.id}
-                      className="border-b border-zinc-100 last:border-0"
+                      className="border-b border-zinc-100 last:border-0 text-zinc-900"
                     >
                       <td className="px-4 py-3">
                         {formatDateTime(call.callTimestamp)}
@@ -303,10 +303,10 @@ export default function CustomerDetailPage({
           <h2 className="mb-4 text-lg font-semibold text-zinc-900">
             Transaction History (last 500)
           </h2>
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white text-zinc-900">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 bg-zinc-50">
+                <tr className="border-b border-zinc-200 bg-zinc-50 text-zinc-900">
                   <th className="px-4 py-3 font-medium">Date</th>
                   <th className="px-4 py-3 font-medium">Amount</th>
                   <th className="px-4 py-3 font-medium">Card</th>
@@ -316,7 +316,7 @@ export default function CustomerDetailPage({
                 {transactions.map((t, i) => (
                   <tr
                     key={t.transactionId ?? `txn-${i}`}
-                    className="border-b border-zinc-100 last:border-0"
+                    className="border-b border-zinc-100 last:border-0 text-zinc-900"
                   >
                     <td className="px-4 py-3">
                       {t.transactionTimestamp

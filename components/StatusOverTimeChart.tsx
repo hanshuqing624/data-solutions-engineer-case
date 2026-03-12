@@ -25,7 +25,7 @@ export function StatusOverTimeChart({
   if (data.length === 0 && !loading) return null;
 
   return (
-    <div className="mb-8 rounded-lg border border-zinc-200 bg-white p-6">
+    <div className="mb-8 rounded-lg border border-zinc-200 bg-white p-6 text-zinc-900">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-900">
           Merchants per status, per week

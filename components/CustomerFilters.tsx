@@ -20,18 +20,18 @@ export function CustomerFilters({
   segments,
 }: CustomerFiltersProps) {
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-4">
+    <div className="mb-4 flex flex-wrap items-center gap-4 text-zinc-900">
       <input
         type="text"
         placeholder="Search by company name..."
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="w-64 rounded border border-zinc-300 px-3 py-2 text-sm"
+        className="w-64 rounded border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
       />
       <select
         value={countryFilter}
         onChange={(e) => onCountryChange(e.target.value)}
-        className="rounded border border-zinc-300 px-3 py-2 text-sm"
+        className="rounded border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
       >
         <option value="">All countries</option>
         {countries.map((co) => (
@@ -43,7 +43,7 @@ export function CustomerFilters({
       <select
         value={segmentFilter}
         onChange={(e) => onSegmentChange(e.target.value)}
-        className="rounded border border-zinc-300 px-3 py-2 text-sm"
+        className="rounded border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
       >
         <option value="">All segments</option>
         {segments.map((s) => (

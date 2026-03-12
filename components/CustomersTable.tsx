@@ -33,7 +33,7 @@ export function CustomersTable({
       <button
         type="button"
         onClick={() => onSort(col)}
-        className={`flex items-center gap-1 hover:text-zinc-900 ${
+        className={`flex items-center gap-1 text-zinc-900 hover:text-zinc-900 ${
           alignRight ? "ml-auto" : ""
         }`}
       >
@@ -46,10 +46,10 @@ export function CustomersTable({
   );
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+    <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white text-zinc-900">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-zinc-200 bg-zinc-50">
+          <tr className="border-b border-zinc-200 bg-zinc-50 text-zinc-900">
             <SortHeader col="companyName" label="Company" />
             <SortHeader col="country" label="Country" />
             <SortHeader col="merchantSegment" label="Segment" />
@@ -63,7 +63,7 @@ export function CustomersTable({
             <SortHeader col="status" label="Status" />
           </tr>
         </thead>
-        <tbody>
+        <tbody className="text-zinc-900">
           {customers.map((c) => (
             <tr
               key={c.merchantId}
@@ -92,7 +92,7 @@ export function CustomersTable({
                 <div className="flex flex-col gap-0.5">
                   <StatusBadge status={c.status} riskReason={c.risk_reason} />
                   <span
-                    className="truncate text-xs text-zinc-500"
+                    className="truncate text-xs text-zinc-600"
                     title={c.risk_reason}
                   >
                     {c.risk_reason}

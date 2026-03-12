@@ -44,7 +44,7 @@ export function ThresholdsPanel() {
   const { thresholds, setThresholds, resetThresholds } = useClassificationStore();
   const [expanded, setExpanded] = useState(false);
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4">
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 text-zinc-900">
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}

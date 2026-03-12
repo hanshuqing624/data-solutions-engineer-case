@@ -54,7 +54,7 @@ export default function Home() {
       <div className="mx-auto max-w-6xl">
         <h1 className="mb-6 text-2xl font-semibold text-zinc-900">Customer Overview</h1>
 
-        <p className="mb-4 text-sm text-zinc-600">
+        <p className="mb-4 text-sm text-zinc-700">
           Retention agent tool — multi-signal classification: recency, volume vs baseline, period-over-period decline.
           Segment-aware thresholds (micro more sensitive).
         </p>
@@ -85,7 +85,7 @@ export default function Home() {
         />
 
         {(statusFilter || totalPages > 1 || searchQuery || countryFilter || segmentFilter) && (
-          <p className="mb-4 text-sm text-zinc-600">
+          <p className="mb-4 text-sm text-zinc-700">
             {statusFilter
               ? `Showing ${filteredCount} ${statusFilter.toLowerCase()} merchant${filteredCount !== 1 ? "s" : ""}. Click a card again to clear filter. `
               : ""}
