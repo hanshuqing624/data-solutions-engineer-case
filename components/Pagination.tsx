@@ -12,23 +12,23 @@ export function Pagination({
   if (totalPages <= 1) return null;
 
   return (
-    <div className="mt-4 flex items-center justify-center gap-2">
+    <div className="mt-4 flex items-center justify-center gap-2 text-zinc-900">
       <button
         type="button"
         onClick={() => onPageChange(Math.max(1, currentPage - 1))}
         disabled={currentPage === 1}
-        className="rounded border border-zinc-300 px-3 py-1 text-sm disabled:opacity-40 hover:bg-zinc-100"
+        className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-zinc-900 disabled:opacity-40 hover:bg-zinc-100"
       >
         Previous
       </button>
-      <span className="text-sm text-zinc-600">
+      <span className="text-sm text-zinc-700">
         {currentPage} / {totalPages}
       </span>
       <button
         type="button"
         onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
         disabled={currentPage === totalPages}
-        className="rounded border border-zinc-300 px-3 py-1 text-sm disabled:opacity-40 hover:bg-zinc-100"
+        className="rounded border border-zinc-300 bg-white px-3 py-1 text-sm text-zinc-900 disabled:opacity-40 hover:bg-zinc-100"
       >
         Next
       </button>

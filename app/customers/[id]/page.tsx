@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatVolumeCents } from "@/lib/format";
+import { Pagination } from "@/components/Pagination";
 import type {
   Customer,
   CustomerDetailResponseFromApi,
@@ -69,6 +70,12 @@ export default function CustomerDetailPage({
   const [outcome, setOutcome] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Pagination state (10 rows per page)
+  const PAGE_SIZE = 10;
+  const [pageMonthlyVolume, setPageMonthlyVolume] = useState(1);
+  const [pageRetentionCalls, setPageRetentionCalls] = useState(1);
+  const [pageTransactions, setPageTransactions] = useState(1);
 
   useEffect(() => {
     params.then((p) => setId(p.id));
@@ -191,7 +198,12 @@ export default function CustomerDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {monthlyVolume.map((m) => (
+                {monthlyVolume
+                  .slice(
+                    (pageMonthlyVolume - 1) * PAGE_SIZE,
+                    pageMonthlyVolume * PAGE_SIZE
+                  )
+                  .map((m) => (
                   <tr
                     key={m.month}
                     className="border-b border-zinc-100 last:border-0 text-zinc-900"
@@ -208,6 +220,11 @@ export default function CustomerDetailPage({
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={pageMonthlyVolume}
+            totalPages={Math.ceil(monthlyVolume.length / PAGE_SIZE) || 1}
+            onPageChange={setPageMonthlyVolume}
+          />
         </section>
 
         {/* Retention calls + Log form */}
@@ -280,7 +297,12 @@ export default function CustomerDetailPage({
                     </td>
                   </tr>
                 ) : (
-                  retentionCalls.map((call) => (
+                  retentionCalls
+                    .slice(
+                      (pageRetentionCalls - 1) * PAGE_SIZE,
+                      pageRetentionCalls * PAGE_SIZE
+                    )
+                    .map((call) => (
                     <tr
                       key={call.id}
                       className="border-b border-zinc-100 last:border-0 text-zinc-900"
@@ -296,6 +318,13 @@ export default function CustomerDetailPage({
               </tbody>
             </table>
           </div>
+          {retentionCalls.length > 0 && (
+            <Pagination
+              currentPage={pageRetentionCalls}
+              totalPages={Math.ceil(retentionCalls.length / PAGE_SIZE) || 1}
+              onPageChange={setPageRetentionCalls}
+            />
+          )}
         </section>
 
         {/* Transaction history */}
@@ -313,9 +342,17 @@ export default function CustomerDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((t, i) => (
+                {transactions
+                  .slice(
+                    (pageTransactions - 1) * PAGE_SIZE,
+                    pageTransactions * PAGE_SIZE
+                  )
+                  .map((t, i) => (
                   <tr
-                    key={t.transactionId ?? `txn-${i}`}
+                    key={
+                      t.transactionId ??
+                      `txn-${(pageTransactions - 1) * PAGE_SIZE + i}`
+                    }
                     className="border-b border-zinc-100 last:border-0 text-zinc-900"
                   >
                     <td className="px-4 py-3">
@@ -333,6 +370,11 @@ export default function CustomerDetailPage({
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={pageTransactions}
+            totalPages={Math.ceil(transactions.length / PAGE_SIZE) || 1}
+            onPageChange={setPageTransactions}
+          />
         </section>
       </div>
     </div>

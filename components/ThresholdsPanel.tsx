@@ -5,6 +5,7 @@ import { useClassificationStore } from "@/lib/classification-store";
 
 function Slider({
   label,
+  tooltip,
   value,
   min,
   max,
@@ -13,6 +14,7 @@ function Slider({
   suffix = "",
 }: {
   label: string;
+  tooltip?: string;
   value: number;
   min: number;
   max: number;
@@ -23,8 +25,22 @@ function Slider({
   const displayValue = step < 1 ? `${Math.round(value * 100)}%` : `${value}${suffix}`;
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex justify-between text-sm">
-        <span className="text-zinc-600">{label}</span>
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span
+          className="flex items-center gap-1.5 text-zinc-600"
+          title={tooltip}
+        >
+          {label}
+          {tooltip && (
+            <span
+              className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-zinc-200 text-[10px] font-bold text-zinc-500 hover:bg-zinc-300 hover:text-zinc-700"
+              title={tooltip}
+              aria-label={`Info: ${tooltip}`}
+            >
+              ?
+            </span>
+          )}
+        </span>
         <span className="font-medium text-zinc-900">{displayValue}</span>
       </div>
       <input
@@ -55,11 +71,21 @@ export function ThresholdsPanel() {
       </button>
       {expanded && (
         <div className="mt-4 space-y-4 pl-0">
+          <p className="rounded-lg bg-zinc-50 p-3 text-sm text-zinc-600">
+            Adjust these thresholds to change how merchants are classified as Active, At Risk, or Inactive.
+            Changes apply immediately to the summary cards and chart. Hover over the <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-zinc-300 text-[9px] font-bold text-zinc-600">?</span> for more detail.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-4">
-              <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Recency (days)</div>
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Recency (days)</div>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  How recently a merchant must have transacted to stay Active or avoid Inactive.
+                </p>
+              </div>
               <Slider
                 label="Active days"
+                tooltip="Merchants with their last transaction within this many days are considered Active. Lower = stricter (fewer Active)."
                 value={thresholds.activeDays}
                 min={7}
                 max={60}
@@ -68,6 +94,7 @@ export function ThresholdsPanel() {
               />
               <Slider
                 label="At risk days"
+                tooltip="Merchants with last transaction between Active days and this value are At Risk. Beyond this = Inactive."
                 value={thresholds.atRiskDays}
                 min={30}
                 max={180}
@@ -76,9 +103,15 @@ export function ThresholdsPanel() {
               />
             </div>
             <div className="space-y-4">
-              <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Decline thresholds</div>
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">Decline thresholds</div>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Volume-based signals that flag a merchant as At Risk even if recently active.
+                </p>
+              </div>
               <Slider
                 label="Volume decline %"
+                tooltip="If recent 30d volume is below this % of their average monthly volume, the merchant is flagged At Risk. E.g. 50% = flag when volume halves."
                 value={thresholds.volumeDeclinePct}
                 min={0.2}
                 max={0.9}
@@ -87,6 +120,7 @@ export function ThresholdsPanel() {
               />
               <Slider
                 label="Period decline %"
+                tooltip="If recent 30d volume is below this % of the prior 30d, the merchant is flagged At Risk. E.g. 70% = flag when volume drops 30% vs prior month."
                 value={thresholds.periodDeclinePct}
                 min={0.4}
                 max={0.95}
@@ -99,6 +133,9 @@ export function ThresholdsPanel() {
             <summary className="cursor-pointer text-sm font-medium text-zinc-600 hover:text-zinc-900">
               Segment-specific
             </summary>
+            <p className="mt-2 text-xs text-zinc-500">
+              Override recency thresholds per merchant segment. Micro merchants typically need more frequent activity.
+            </p>
             <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {(
                 [
@@ -112,6 +149,7 @@ export function ThresholdsPanel() {
                   <div className="text-xs font-medium capitalize text-zinc-500">{seg}</div>
                   <Slider
                     label="Active"
+                    tooltip={`Active days for ${seg} segment. Overrides the default when merchant segment is ${seg}.`}
                     value={thresholds[activeKey]}
                     min={7}
                     max={60}
@@ -120,6 +158,7 @@ export function ThresholdsPanel() {
                   />
                   <Slider
                     label="At risk"
+                    tooltip={`At risk days for ${seg} segment. Overrides the default when merchant segment is ${seg}.`}
                     value={thresholds[atRiskKey]}
                     min={30}
                     max={180}
