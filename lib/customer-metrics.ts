@@ -1,15 +1,7 @@
 import prisma from "@/lib/db";
+import type { MerchantMetrics } from "@/lib/types";
 
 const MONTH_SECONDS = 30.44 * 24 * 3600;
-
-export type MerchantMetrics = {
-  volume90d: number;
-  transactionCount90d: number;
-  lastTransactionTimestamp: Date | null;
-  volume30d: number;
-  volumePrior30d: number;
-  avgMonthlyVolumeEur: number | null;
-};
 
 /** Get aggregated metrics for all merchants as of a given date */
 export async function getMerchantMetricsAsOf(asOfDate: Date): Promise<

@@ -4,30 +4,22 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { formatVolumeCents } from "@/lib/format";
+import type {
+  CustomerOverview,
+  CustomerStatus,
+  SortColumn,
+  StatusFilter,
+  StatusOverTimeWeek,
+} from "@/lib/types";
 
-type StatusOverTimeWeek = {
-  week: string;
-  weekLabel: string;
-  active: number;
-  atRisk: number;
-  inactive: number;
-  total: number;
-};
-
-type CustomerOverview = {
-  merchantId: number;
-  companyName: string | null;
-  country: string | null;
-  merchantSegment: string | null;
-  volume90d: number;
-  transactionCount90d: number;
-  daysSinceLastTransaction: number | null;
-  status: "Active" | "At Risk" | "Inactive";
-  risk_reason: string;
-};
-
-function StatusBadge({ status, riskReason }: { status: CustomerOverview["status"]; riskReason: string }) {
-  const styles: Record<CustomerOverview["status"], string> = {
+function StatusBadge({
+  status,
+  riskReason,
+}: {
+  status: CustomerStatus;
+  riskReason: string;
+}) {
+  const styles: Record<CustomerStatus, string> = {
     Active: "bg-green-100 text-green-800",
     "At Risk": "bg-amber-100 text-amber-800",
     Inactive: "bg-gray-100 text-gray-600",
@@ -41,16 +33,6 @@ function StatusBadge({ status, riskReason }: { status: CustomerOverview["status"
     </span>
   );
 }
-
-type StatusFilter = "Active" | "At Risk" | "Inactive" | null;
-type SortColumn =
-  | "companyName"
-  | "country"
-  | "merchantSegment"
-  | "volume90d"
-  | "transactionCount90d"
-  | "daysSinceLastTransaction"
-  | "status";
 
 export default function Home() {
   const [customers, setCustomers] = useState<CustomerOverview[]>([]);

@@ -3,45 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatVolumeCents } from "@/lib/format";
-
-type Customer = {
-  merchantId: number;
-  companyName: string | null;
-  contactPerson: string | null;
-  phoneNumber: string | null;
-  address: string | null;
-  country: string | null;
-  productType: string | null;
-  merchantSegment: string | null;
-  merchantCreatedAt: string | null;
-  volume90d: number;
-  transactionCount90d: number;
-  daysSinceLastTransaction: number | null;
-  status: "Active" | "At Risk" | "Inactive";
-  risk_reason: string;
-};
-
-type Transaction = {
-  transactionId: string;
-  transactionTimestamp: string;
-  transactionAmountEur: number;
-  currency: string | null;
-  cardType: string | null;
-};
-
-type MonthlyVolume = {
-  month: string;
-  volume: number;
-  transactionCount: number;
-};
-
-type RetentionCall = {
-  id: number;
-  customerId: number;
-  callTimestamp: string;
-  outcome: string | null;
-  notes: string | null;
-};
+import type {
+  Customer,
+  CustomerDetailResponseFromApi,
+  CustomerStatus,
+  MonthlyVolume,
+  RetentionCall,
+  Transaction,
+} from "@/lib/types";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", {
@@ -65,10 +34,10 @@ function StatusBadge({
   status,
   riskReason,
 }: {
-  status: Customer["status"];
+  status: CustomerStatus;
   riskReason: string;
 }) {
-  const styles: Record<Customer["status"], string> = {
+  const styles: Record<CustomerStatus, string> = {
     Active: "bg-green-100 text-green-800",
     "At Risk": "bg-amber-100 text-amber-800",
     Inactive: "bg-gray-100 text-gray-600",
@@ -344,13 +313,15 @@ export default function CustomerDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((t) => (
+                {transactions.map((t, i) => (
                   <tr
-                    key={t.transactionId}
+                    key={t.transactionId ?? `txn-${i}`}
                     className="border-b border-zinc-100 last:border-0"
                   >
                     <td className="px-4 py-3">
-                      {formatDateTime(t.transactionTimestamp)}
+                      {t.transactionTimestamp
+                        ? formatDateTime(t.transactionTimestamp)
+                        : "—"}
                     </td>
                     <td className="px-4 py-3">
                       {formatVolumeCents(t.transactionAmountEur)}{" "}

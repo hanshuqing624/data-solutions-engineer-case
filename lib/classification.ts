@@ -4,7 +4,7 @@
  * All thresholds are adjustable.
  */
 
-export type CustomerStatus = "Active" | "At Risk" | "Inactive";
+import type { ClassificationInput, CustomerStatus } from "@/lib/types";
 
 // Adjustable thresholds
 export const CLASSIFICATION_THRESHOLDS = {
@@ -35,15 +35,6 @@ export const CLASSIFICATION_THRESHOLDS = {
     large: 120,
   } as Record<string, number>,
 } as const;
-
-export type ClassificationInput = {
-  daysSinceLastTransaction: number | null;
-  transactionCount90d: number;
-  volume30d: number;
-  volumePrior30d: number;
-  avgMonthlyVolumeEur: number | null;
-  merchantSegment: string | null;
-};
 
 /**
  * Get segment-aware recency thresholds. Falls back to default if segment unknown.

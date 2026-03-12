@@ -3,67 +3,13 @@ import { classifyCustomer } from "@/lib/classification";
 import {
   getMerchantMetricsAsOf,
   getMerchantMetricsFor,
-  type MerchantMetrics,
 } from "@/lib/customer-metrics";
-
-export type CustomerOverview = {
-  merchantId: number;
-  companyName: string | null;
-  country: string | null;
-  merchantSegment: string | null;
-  volume90d: number;
-  transactionCount90d: number;
-  daysSinceLastTransaction: number | null;
-  status: "Active" | "At Risk" | "Inactive";
-  risk_reason: string;
-};
-
-export type StatusOverTimeWeek = {
-  week: string;
-  weekLabel: string;
-  active: number;
-  atRisk: number;
-  inactive: number;
-  total: number;
-};
-
-export type CustomerDetailResponse = {
-  customer: {
-    merchantId: number;
-    companyName: string | null;
-    contactPerson: string | null;
-    phoneNumber: string | null;
-    address: string | null;
-    country: string | null;
-    productType: string | null;
-    merchantSegment: string | null;
-    merchantCreatedAt: Date | null;
-    volume90d: number;
-    transactionCount90d: number;
-    daysSinceLastTransaction: number | null;
-    status: "Active" | "At Risk" | "Inactive";
-    risk_reason: string;
-  };
-  transactions: Array<{
-    transactionId: string | null;
-    transactionTimestamp: Date | null;
-    transactionAmountEur: number;
-    currency: string | null;
-    cardType: string | null;
-  }>;
-  monthlyVolume: Array<{
-    month: Date;
-    volume: number;
-    transactionCount: number;
-  }>;
-  retentionCalls: Array<{
-    id: number;
-    customerId: number;
-    callTimestamp: Date;
-    outcome: string | null;
-    notes: string | null;
-  }>;
-};
+import type {
+  CustomerDetailResponse,
+  CustomerOverview,
+  MerchantMetrics,
+  StatusOverTimeWeek,
+} from "@/lib/types";
 
 const DEFAULT_METRICS: MerchantMetrics = {
   volume90d: 0,
