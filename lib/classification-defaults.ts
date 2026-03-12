@@ -6,59 +6,62 @@
 
 import type { ClassificationInput, CustomerStatus } from "@/lib/types";
 
-// Adjustable thresholds
-export const CLASSIFICATION_THRESHOLDS = {
-  // Recency (primary signal)
+/** Adjustable thresholds type - can be overridden for client-side classification */
+export type ClassificationThresholds = {
+  ACTIVE_DAYS: number;
+  AT_RISK_DAYS: number;
+  VOLUME_DECLINE_PCT: number;
+  PERIOD_DECLINE_PCT: number;
+  SEGMENT_ACTIVE_DAYS: Record<string, number>;
+  SEGMENT_AT_RISK_DAYS: Record<string, number>;
+};
+
+// Default thresholds (used when no override provided)
+export const CLASSIFICATION_THRESHOLDS: ClassificationThresholds = {
   ACTIVE_DAYS: 30,
   AT_RISK_DAYS: 90,
-
-  // Volume vs baseline: recent monthly < X% of avg_monthly_volume_eur → At Risk
   VOLUME_DECLINE_PCT: 0.5,
-
-  // Period-over-period: last 30d < X% of prior 30d → At Risk
   PERIOD_DECLINE_PCT: 0.7,
-
-  // Frequency: txn count down > X% (e.g. 0.5 = 50% drop) → At Risk
-  FREQUENCY_DECLINE_PCT: 0.5,
-
-  // Segment-specific recency (days) - micro merchants more sensitive
   SEGMENT_ACTIVE_DAYS: {
     micro: 14,
     small: 30,
     medium: 45,
     large: 45,
-  } as Record<string, number>,
+  },
   SEGMENT_AT_RISK_DAYS: {
     micro: 60,
     small: 90,
     medium: 120,
     large: 120,
-  } as Record<string, number>,
-} as const;
+  },
+};
 
 /**
  * Get segment-aware recency thresholds. Falls back to default if segment unknown.
  */
-function getSegmentThresholds(segment: string | null): {
-  activeDays: number;
-  atRiskDays: number;
-} {
+function getSegmentThresholds(
+  segment: string | null,
+  thresholds: ClassificationThresholds
+): { activeDays: number; atRiskDays: number } {
   const key = (segment ?? "small").toLowerCase();
   return {
     activeDays:
-      CLASSIFICATION_THRESHOLDS.SEGMENT_ACTIVE_DAYS[key] ??
-      CLASSIFICATION_THRESHOLDS.ACTIVE_DAYS,
+      thresholds.SEGMENT_ACTIVE_DAYS[key] ?? thresholds.ACTIVE_DAYS,
     atRiskDays:
-      CLASSIFICATION_THRESHOLDS.SEGMENT_AT_RISK_DAYS[key] ??
-      CLASSIFICATION_THRESHOLDS.AT_RISK_DAYS,
+      thresholds.SEGMENT_AT_RISK_DAYS[key] ?? thresholds.AT_RISK_DAYS,
   };
 }
 
 /**
  * Classify a customer using multi-signal rules.
  * Order: Inactive (no activity) → Recency → Volume decline → Period decline.
+ * @param input - Customer metrics for classification
+ * @param thresholds - Optional override; uses CLASSIFICATION_THRESHOLDS if omitted
  */
-export function classifyCustomer(input: ClassificationInput): {
+export function classifyCustomer(
+  input: ClassificationInput,
+  thresholds: ClassificationThresholds = CLASSIFICATION_THRESHOLDS
+): {
   status: CustomerStatus;
   reason: string;
 } {
@@ -71,7 +74,7 @@ export function classifyCustomer(input: ClassificationInput): {
     merchantSegment,
   } = input;
 
-  const { activeDays, atRiskDays } = getSegmentThresholds(merchantSegment);
+  const { activeDays, atRiskDays } = getSegmentThresholds(merchantSegment, thresholds);
 
   // No transactions in last 90 days → Inactive
   if (daysSinceLastTransaction === null || transactionCount90d === 0) {
@@ -97,7 +100,7 @@ export function classifyCustomer(input: ClassificationInput): {
   if (
     avgMonthlyVolumeEur != null &&
     avgMonthlyVolumeEur > 0 &&
-    volume30d < CLASSIFICATION_THRESHOLDS.VOLUME_DECLINE_PCT * avgMonthlyVolumeEur
+    volume30d < thresholds.VOLUME_DECLINE_PCT * avgMonthlyVolumeEur
   ) {
     volumeDecline = true;
     const pct = Math.round((volume30d / avgMonthlyVolumeEur) * 100);
@@ -106,7 +109,7 @@ export function classifyCustomer(input: ClassificationInput): {
 
   // Period-over-period decline (last 30d vs prior 30d)
   let periodDecline = false;
-  if (volumePrior30d > 0 && volume30d < CLASSIFICATION_THRESHOLDS.PERIOD_DECLINE_PCT * volumePrior30d) {
+  if (volumePrior30d > 0 && volume30d < thresholds.PERIOD_DECLINE_PCT * volumePrior30d) {
     periodDecline = true;
     const pct = Math.round((volume30d / volumePrior30d) * 100);
     reasons.push(`volume down ${100 - pct}% vs prior 30d`);

@@ -1,5 +1,6 @@
 import prisma from "@/lib/db";
-import { classifyCustomer } from "@/lib/classification";
+import { classifyCustomer } from "@/lib/classification-defaults";
+import type { ClassificationThresholds } from "@/lib/classification-defaults";
 import {
   getMerchantMetricsAsOf,
   getMerchantMetricsFor,
@@ -60,6 +61,9 @@ function computeCustomerOverview(
     daysSinceLastTransaction: daysSinceLast,
     status,
     risk_reason: reason,
+    volume30d: metrics.volume30d,
+    volumePrior30d: metrics.volumePrior30d,
+    avgMonthlyVolumeEur: metrics.avgMonthlyVolumeEur,
   };
 }
 
@@ -105,7 +109,10 @@ export async function getCustomerOverviews(): Promise<CustomerOverview[]> {
 }
 
 /** Get status counts (active, atRisk, inactive) as of a given date */
-export async function getStatusCountsAsOf(asOfDate: Date): Promise<{
+export async function getStatusCountsAsOf(
+  asOfDate: Date,
+  thresholds?: ClassificationThresholds
+): Promise<{
   active: number;
   atRisk: number;
   inactive: number;
@@ -135,14 +142,17 @@ export async function getStatusCountsAsOf(asOfDate: Date): Promise<{
       m.lastTransactionTimestamp,
       asOfDate
     );
-    const { status } = classifyCustomer({
-      daysSinceLastTransaction: daysSinceLast,
-      transactionCount90d: m.transactionCount90d,
-      volume30d: m.volume30d,
-      volumePrior30d: m.volumePrior30d,
-      avgMonthlyVolumeEur: m.avgMonthlyVolumeEur,
-      merchantSegment: c.merchant_segment,
-    });
+    const { status } = classifyCustomer(
+      {
+        daysSinceLastTransaction: daysSinceLast,
+        transactionCount90d: m.transactionCount90d,
+        volume30d: m.volume30d,
+        volumePrior30d: m.volumePrior30d,
+        avgMonthlyVolumeEur: m.avgMonthlyVolumeEur,
+        merchantSegment: c.merchant_segment,
+      },
+      thresholds
+    );
     counts[status === "Active" ? "active" : status === "At Risk" ? "atRisk" : "inactive"]++;
   }
 
@@ -151,7 +161,8 @@ export async function getStatusCountsAsOf(asOfDate: Date): Promise<{
 
 /** Get status-over-time data for the last N weeks */
 export async function getStatusOverTimeData(
-  weeks: number
+  weeks: number,
+  thresholds?: ClassificationThresholds
 ): Promise<StatusOverTimeWeek[]> {
   const clampedWeeks = Math.min(Math.max(weeks, 1), 26);
   const now = new Date();
@@ -162,7 +173,7 @@ export async function getStatusOverTimeData(
     weekEnd.setDate(weekEnd.getDate() - i * 7);
     weekEnd.setHours(23, 59, 59, 999);
 
-    const counts = await getStatusCountsAsOf(weekEnd);
+    const counts = await getStatusCountsAsOf(weekEnd, thresholds);
 
     const weekStart = new Date(weekEnd);
     weekStart.setDate(weekStart.getDate() - 6);

@@ -44,6 +44,10 @@ export type CustomerOverview = {
   daysSinceLastTransaction: number | null;
   status: CustomerStatus;
   risk_reason: string;
+  /** Raw metrics for client-side reclassification with custom thresholds */
+  volume30d?: number;
+  volumePrior30d?: number;
+  avgMonthlyVolumeEur?: number | null;
 };
 
 export type StatusOverTimeWeek = {
