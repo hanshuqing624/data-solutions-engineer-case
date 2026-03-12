@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useClassificationStore } from "@/lib/classification-store";
-import type {
-  CustomerOverview,
-  SortColumn,
-  StatusFilter,
-  StatusOverTimeWeek,
-} from "@/lib/types";
+import {
+  filterCustomers,
+  sortCustomers,
+  getUniqueCountries,
+  getUniqueSegments,
+} from "@/lib/customer-utils";
+import type { SortColumn, StatusFilter, StatusOverTimeWeek } from "@/lib/types";
 
 const PAGE_SIZE = 10;
-const STATUS_ORDER = { Inactive: 0, "At Risk": 1, Active: 2 };
 
 export function useCustomerOverview() {
   const { classifiedCustomers, setRawCustomers, thresholds } =
@@ -81,58 +81,17 @@ export function useCustomerOverview() {
     setPage(1);
   };
 
-  // Filter pipeline
-  const statusFiltered =
-    statusFilter === null
-      ? classifiedCustomers
-      : classifiedCustomers.filter((c) => c.status === statusFilter);
-
-  const searchLower = searchQuery.trim().toLowerCase();
-  const searchFiltered =
-    searchLower === ""
-      ? statusFiltered
-      : statusFiltered.filter((c) =>
-          (c.companyName ?? `Merchant ${c.merchantId}`)
-            .toLowerCase()
-            .includes(searchLower)
-        );
-
-  const countryFiltered =
-    countryFilter === ""
-      ? searchFiltered
-      : searchFiltered.filter((c) => (c.country ?? "") === countryFilter);
-
-  const segmentFiltered =
-    segmentFilter === ""
-      ? countryFiltered
-      : countryFiltered.filter(
-          (c) => (c.merchantSegment ?? "") === segmentFilter
-        );
-
-  // Sort
-  const sortedCustomers = [...segmentFiltered].sort((a, b) => {
-    let cmp = 0;
-    if (sortColumn === "companyName") {
-      const na = (a.companyName ?? `Merchant ${a.merchantId}`).toLowerCase();
-      const nb = (b.companyName ?? `Merchant ${b.merchantId}`).toLowerCase();
-      cmp = na.localeCompare(nb);
-    } else if (sortColumn === "country") {
-      cmp = (a.country ?? "").localeCompare(b.country ?? "");
-    } else if (sortColumn === "merchantSegment") {
-      cmp = (a.merchantSegment ?? "").localeCompare(b.merchantSegment ?? "");
-    } else if (sortColumn === "volume90d") {
-      cmp = a.volume90d - b.volume90d;
-    } else if (sortColumn === "transactionCount90d") {
-      cmp = a.transactionCount90d - b.transactionCount90d;
-    } else if (sortColumn === "daysSinceLastTransaction") {
-      const da = a.daysSinceLastTransaction ?? 9999;
-      const db = b.daysSinceLastTransaction ?? 9999;
-      cmp = da - db;
-    } else if (sortColumn === "status") {
-      cmp = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
-    }
-    return sortDirection === "asc" ? cmp : -cmp;
+  const filtered = filterCustomers(classifiedCustomers, {
+    statusFilter,
+    searchQuery,
+    countryFilter,
+    segmentFilter,
   });
+  const sortedCustomers = sortCustomers(
+    filtered,
+    sortColumn,
+    sortDirection
+  );
 
   const totalPages = Math.ceil(sortedCustomers.length / PAGE_SIZE) || 1;
   const currentPage = Math.min(page, totalPages);
@@ -141,16 +100,8 @@ export function useCustomerOverview() {
     currentPage * PAGE_SIZE
   );
 
-  const countries = [
-    ...new Set(
-      classifiedCustomers.map((c) => c.country ?? "").filter(Boolean)
-    ),
-  ].sort();
-  const segments = [
-    ...new Set(
-      classifiedCustomers.map((c) => c.merchantSegment ?? "").filter(Boolean)
-    ),
-  ].sort();
+  const countries = getUniqueCountries(classifiedCustomers);
+  const segments = getUniqueSegments(classifiedCustomers);
 
   return {
     loading,
