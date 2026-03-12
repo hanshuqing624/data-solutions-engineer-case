@@ -88,18 +88,30 @@ export function ThresholdsPanel() {
                 tooltip="Merchants with their last transaction within this many days are considered Active. Lower = stricter (fewer Active)."
                 value={thresholds.activeDays}
                 min={7}
-                max={60}
+                max={Math.min(60, thresholds.atRiskDays - 1)}
                 step={1}
-                onChange={(v) => setThresholds({ activeDays: v })}
+                onChange={(v) => {
+                  if (v >= thresholds.atRiskDays) {
+                    setThresholds({ activeDays: v, atRiskDays: v + 1 });
+                  } else {
+                    setThresholds({ activeDays: v });
+                  }
+                }}
               />
               <Slider
                 label="At risk days"
                 tooltip="Merchants with last transaction between Active days and this value are At Risk. Beyond this = Inactive."
                 value={thresholds.atRiskDays}
-                min={30}
+                min={Math.max(30, thresholds.activeDays + 1)}
                 max={180}
                 step={1}
-                onChange={(v) => setThresholds({ atRiskDays: v })}
+                onChange={(v) => {
+                  if (v <= thresholds.activeDays) {
+                    setThresholds({ atRiskDays: v, activeDays: v - 1 });
+                  } else {
+                    setThresholds({ atRiskDays: v });
+                  }
+                }}
               />
             </div>
             <div className="space-y-4">
@@ -144,29 +156,45 @@ export function ThresholdsPanel() {
                   ["medium", "segmentMediumActiveDays", "segmentMediumAtRiskDays"],
                   ["large", "segmentLargeActiveDays", "segmentLargeAtRiskDays"],
                 ] as const
-              ).map(([seg, activeKey, atRiskKey]) => (
-                <div key={seg} className="space-y-3 rounded border border-zinc-100 p-3">
-                  <div className="text-xs font-medium capitalize text-zinc-500">{seg}</div>
-                  <Slider
-                    label="Active"
-                    tooltip={`Active days for ${seg} segment. Overrides the default when merchant segment is ${seg}.`}
-                    value={thresholds[activeKey]}
-                    min={7}
-                    max={60}
-                    step={1}
-                    onChange={(v) => setThresholds({ [activeKey]: v })}
-                  />
-                  <Slider
-                    label="At risk"
-                    tooltip={`At risk days for ${seg} segment. Overrides the default when merchant segment is ${seg}.`}
-                    value={thresholds[atRiskKey]}
-                    min={30}
-                    max={180}
-                    step={1}
-                    onChange={(v) => setThresholds({ [atRiskKey]: v })}
-                  />
-                </div>
-              ))}
+              ).map(([seg, activeKey, atRiskKey]) => {
+                const segActive = thresholds[activeKey];
+                const segAtRisk = thresholds[atRiskKey];
+                return (
+                  <div key={seg} className="space-y-3 rounded border border-zinc-100 p-3">
+                    <div className="text-xs font-medium capitalize text-zinc-500">{seg}</div>
+                    <Slider
+                      label="Active"
+                      tooltip={`Active days for ${seg} segment. Overrides the default when merchant segment is ${seg}.`}
+                      value={segActive}
+                      min={7}
+                      max={Math.min(60, segAtRisk - 1)}
+                      step={1}
+                      onChange={(v) => {
+                        if (v >= segAtRisk) {
+                          setThresholds({ [activeKey]: v, [atRiskKey]: v + 1 });
+                        } else {
+                          setThresholds({ [activeKey]: v });
+                        }
+                      }}
+                    />
+                    <Slider
+                      label="At risk"
+                      tooltip={`At risk days for ${seg} segment. Overrides the default when merchant segment is ${seg}.`}
+                      value={segAtRisk}
+                      min={Math.max(30, segActive + 1)}
+                      max={180}
+                      step={1}
+                      onChange={(v) => {
+                        if (v <= segActive) {
+                          setThresholds({ [atRiskKey]: v, [activeKey]: v - 1 });
+                        } else {
+                          setThresholds({ [atRiskKey]: v });
+                        }
+                      }}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </details>
           <button

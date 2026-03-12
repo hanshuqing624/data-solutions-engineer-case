@@ -39,6 +39,28 @@ const DEFAULT_THRESHOLDS: ThresholdsState = {
   segmentLargeAtRiskDays: CLASSIFICATION_THRESHOLDS.SEGMENT_AT_RISK_DAYS.large,
 };
 
+/** Enforce activeDays < atRiskDays for all recency pairs */
+function enforceRecencyInvariant(t: ThresholdsState): ThresholdsState {
+  const next = { ...t };
+  if (next.activeDays >= next.atRiskDays) {
+    next.atRiskDays = next.activeDays + 1;
+  }
+  const pairs: [keyof ThresholdsState, keyof ThresholdsState][] = [
+    ["segmentMicroActiveDays", "segmentMicroAtRiskDays"],
+    ["segmentSmallActiveDays", "segmentSmallAtRiskDays"],
+    ["segmentMediumActiveDays", "segmentMediumAtRiskDays"],
+    ["segmentLargeActiveDays", "segmentLargeAtRiskDays"],
+  ];
+  for (const [activeKey, atRiskKey] of pairs) {
+    const active = next[activeKey] as number;
+    const atRisk = next[atRiskKey] as number;
+    if (active >= atRisk) {
+      (next as Record<string, number>)[atRiskKey] = active + 1;
+    }
+  }
+  return next;
+}
+
 function toClassificationThresholds(s: ThresholdsState): ClassificationThresholds {
   return {
     ACTIVE_DAYS: s.activeDays,
@@ -119,7 +141,8 @@ export const useClassificationStore = create<ClassificationStore>()(
 
       setThresholds: (partial) =>
         set((state) => {
-          const nextThresholds = { ...state.thresholds, ...partial };
+          let nextThresholds = { ...state.thresholds, ...partial };
+          nextThresholds = enforceRecencyInvariant(nextThresholds);
           const classificationThresholds =
             toClassificationThresholds(nextThresholds);
           const classifiedCustomers = reclassifyCustomers(
@@ -164,6 +187,17 @@ export const useClassificationStore = create<ClassificationStore>()(
     {
       name: "classification-thresholds",
       partialize: (state) => ({ thresholds: state.thresholds }),
+      merge: (persisted, current) => {
+        const p = persisted as Partial<{ thresholds: ThresholdsState }> | null;
+        const merged = {
+          ...current,
+          ...(p && typeof p === "object" ? p : {}),
+        };
+        if (merged.thresholds) {
+          merged.thresholds = enforceRecencyInvariant(merged.thresholds);
+        }
+        return merged;
+      },
     }
   )
 );
